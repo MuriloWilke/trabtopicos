@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_modular/flutter_modular.dart';
 import 'package:trabtopicos/app/screens/image_picker_screen.dart';
 
-import 'app_module.dart';
+import 'app/app_module.dart';
 
 const Color primaryBlue = Color(0xFF1976D2);
 const Color primaryDarkBlue = Color(0xFF0D47A1);
