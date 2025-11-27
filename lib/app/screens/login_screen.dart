@@ -34,7 +34,7 @@ class _LoginScreenState extends State<LoginScreen> {
           children: [
             const Icon(Icons.inventory_2, size: 80, color: Color(0xFF0D47A1)),
             const SizedBox(height: 20),
-            const Text('Inventário IA', style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold)),
+            const Text('InventárIA', style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold)),
             const SizedBox(height: 40),
             TextField(
               controller: _userController,
