@@ -11,28 +11,40 @@ class AiService {
   final String _vistoriaEndpoint = 'https://flowiseai-railway-production-dc27.up.railway.app/api/v1/prediction/ca8709fc-506f-4903-a1d0-72e63d81d639';
 
   Future<Map<String, dynamic>?> analisarImagemCadastro(String imagePath) async {
+    log('--- Iniciando Análise de Cadastro ---');
     return _sendToFlowise(
         imagePath,
-        "Analise esta imagem e extraia os dados do produto (nome, categoria, valor, estado, quantidade).",
+        "Analise esta imagem e extraia os dados do produto (nome, categoria, valor, quantidade).",
         _cadastroEndpoint
     );
   }
 
   Future<Map<String, dynamic>?> realizarVistoria(String imagePath, List<Produto> estoqueAtual) async {
+    log('--- Iniciando Vistoria ---');
     final estoqueJson = estoqueAtual.map((p) => p.toAIJson()).toList();
 
     final prompt = """
       Estou fazendo uma vistoria de estoque.
       Aqui está a lista COMPLETA de itens do local (JSON): ${jsonEncode(estoqueJson)}.
-      Alguns itens já foram conferidos (checked: true).
       
-      Analise a imagem enviada:
-      1. Se o item da imagem corresponde a um item da lista (mesmo se checked: true), retorne o UUID dele.
-         - Se ele já estava 'checked: true', adicione status: 'already_checked'.
-         - Se houve mudança (ex: quantidade, estado, valor), retorne status: 'changed' e os campos alterados.
-         - Se está tudo igual e não estava checked, retorne status: 'ok'.
+      Analise a imagem enviada procurando por DEFEITOS, SUJEIRA, QUEBRAS ou DANOS:
       
-      2. Se o item NÃO está na lista fornecida, retorne estritamente o json: { "status": "erro", "mensagem": "Item não pertence a esta unidade" }.
+      1. Se o item da imagem corresponde a um item da lista:
+         - Retorne o UUID dele.
+         - Se ele apresentar qualquer defeito, sujeira visível ou estiver quebrado: defina "isDanificado": true.
+         - Se a quantidade mudou, ajuste o campo "quantidade".
+         - Se estiver tudo perfeito: retorne status 'ok'.
+         - Se houver dano ou mudança de quantidade: retorne status 'changed' e os campos na raiz do JSON.
+      
+      2. Se o item NÃO está na lista, retorne: { "status": "erro", "mensagem": "Item não pertence a esta unidade" }.
+      
+      Exemplo de retorno de item danificado:
+      {
+        "uuid": "...",
+        "status": "changed",
+        "isDanificado": true,
+        "quantidade": 1
+      }
     """;
 
     return _sendToFlowise(imagePath, prompt, _vistoriaEndpoint);
@@ -40,6 +52,9 @@ class AiService {
 
   Future<Map<String, dynamic>?> _sendToFlowise(String imagePath, String question, String endpoint) async {
     try {
+      log('Preparando envio para: $endpoint');
+      log('Prompt enviado: $question');
+
       final imageFile = File(imagePath);
       final bytes = await imageFile.readAsBytes();
       final base64Image = base64Encode(bytes);
@@ -62,23 +77,28 @@ class AiService {
         body: body,
       ).timeout(const Duration(seconds: 60));
 
+      log('HTTP Status Code: ${response.statusCode}');
+      log('HTTP Body Bruto: ${response.body}');
+
       if (response.statusCode == 200) {
         final jsonResponse = jsonDecode(response.body);
         final String text = jsonResponse['text'] ?? '';
-        log("Resposta da IA: $text");
 
         final startIndex = text.indexOf('{');
         final endIndex = text.lastIndexOf('}');
 
         if (startIndex != -1 && endIndex != -1) {
           final cleanJson = text.substring(startIndex, endIndex + 1);
-          return jsonDecode(cleanJson);
+          log("JSON Limpo para parse: $cleanJson");
+          try {
+            return jsonDecode(cleanJson);
+          } catch (e) {
+            log("Erro ao fazer parse do JSON limpo: $e");
+          }
         }
-      } else {
-        log('Erro Flowise ($endpoint): ${response.statusCode} - ${response.body}');
       }
     } catch (e) {
-      log('Erro AI Service: $e');
+      log('EXCEÇÃO no AiService: $e');
     }
     return null;
   }

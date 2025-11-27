@@ -38,6 +38,25 @@ class _UnidadeDetailScreenState extends State<UnidadeDetailScreen> {
     });
   }
 
+  Future<void> _deletarProduto(Produto produto) async {
+    final confirmar = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Excluir Item'),
+        content: Text('Tem certeza que deseja excluir "${produto.nome}"?'),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancelar')),
+          TextButton(onPressed: () => Navigator.pop(ctx, true), child: const Text('Excluir', style: TextStyle(color: Colors.red))),
+        ],
+      ),
+    );
+
+    if (confirmar == true) {
+      await _storage.deleteProduto(produto.id);
+      _loadProdutos();
+    }
+  }
+
   Future<void> _adicionarItem() async {
     final imagePath = await _tirarFoto();
     if (imagePath == null) return;
@@ -55,8 +74,8 @@ class _UnidadeDetailScreenState extends State<UnidadeDetailScreen> {
             nome: novoProduto.nome,
             categoria: novoProduto.categoria,
             valorEstimado: novoProduto.valorEstimado,
-            estado: novoProduto.estado,
-            quantidade: novoProduto.quantidade
+            quantidade: novoProduto.quantidade,
+            isDanificado: false
         );
 
         _abrirTelaEdicao(produtoVinculado, false, []);
@@ -114,9 +133,18 @@ class _UnidadeDetailScreenState extends State<UnidadeDetailScreen> {
       if (existingIndex >= 0) {
         final produtoOriginal = _produtos[existingIndex];
 
+        final novaQuantidade = dados['quantidade'] != null
+            ? (dados['quantidade'] is int ? dados['quantidade'] : int.tryParse(dados['quantidade'].toString()) ?? produtoOriginal.quantidade)
+            : produtoOriginal.quantidade;
+
+        bool isDanificadoNovo = dados['isDanificado'] == true;
+        if (dados['isDanificado'] == null) {
+          isDanificadoNovo = produtoOriginal.isDanificado;
+        }
+
         List<String> camposAlterados = [];
-        if (dados['quantidade'].toString() != produtoOriginal.quantidade.toString()) camposAlterados.add('quantidade');
-        if (dados['estado'] != produtoOriginal.estado) camposAlterados.add('estado');
+        if (novaQuantidade != produtoOriginal.quantidade) camposAlterados.add('quantidade');
+        if (isDanificadoNovo != produtoOriginal.isDanificado) camposAlterados.add('isDanificado');
 
         final produtoAtualizado = Produto(
             id: produtoOriginal.id,
@@ -125,22 +153,35 @@ class _UnidadeDetailScreenState extends State<UnidadeDetailScreen> {
             nome: produtoOriginal.nome,
             categoria: produtoOriginal.categoria,
             valorEstimado: produtoOriginal.valorEstimado,
-            estado: dados['estado'] ?? produtoOriginal.estado,
-            quantidade: dados['quantidade'] is int ? dados['quantidade'] : int.tryParse(dados['quantidade'].toString()) ?? produtoOriginal.quantidade,
-            isChecked: true
+            quantidade: novaQuantidade,
+            isChecked: true,
+            isDanificado: isDanificadoNovo
         );
 
-        if (camposAlterados.isNotEmpty || dados['status'] == 'changed') {
+        if (dados['status'] == 'changed' || camposAlterados.isNotEmpty || isDanificadoNovo) {
           _abrirTelaEdicao(produtoAtualizado, true, camposAlterados);
         } else {
           await _storage.saveProduto(produtoAtualizado);
           _loadProdutos();
           _showMessage('Item validado com sucesso!');
         }
+      } else {
+        _showError('Erro interno: UUID retornado não encontrado na lista local.');
       }
     }
     else {
-      _showError('Item não identificado na lista de estoque.');
+      final novoProduto = Produto.fromJson(dados, imagePath);
+      final prodFinal = Produto(
+          unidadeId: widget.unidade.id,
+          fotoPath: imagePath,
+          nome: novoProduto.nome,
+          categoria: novoProduto.categoria,
+          valorEstimado: novoProduto.valorEstimado,
+          quantidade: novoProduto.quantidade,
+          isChecked: true,
+          isDanificado: dados['isDanificado'] == true
+      );
+      _abrirTelaEdicao(prodFinal, false, []);
     }
   }
 
@@ -196,18 +237,82 @@ class _UnidadeDetailScreenState extends State<UnidadeDetailScreen> {
               ),
               Expanded(
                 child: _produtos.isEmpty
-                    ? const Center(child: Text('Sem itens. Adicione o primeiro!'))
-                    : ListView.builder(
+                    ? Center(
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Container(
+                        width: 80,
+                        height: 80,
+                        decoration: const BoxDecoration(
+                          color: Color(0xFFE0E0E0),
+                          shape: BoxShape.circle,
+                        ),
+                        child: const Icon(
+                          Icons.priority_high,
+                          color: Colors.black,
+                          size: 40,
+                        ),
+                      ),
+                      const SizedBox(height: 16),
+                      const Text(
+                        'Não há itens cadastrados.\nAdicione o primeiro!',
+                        textAlign: TextAlign.center,
+                        style: TextStyle(fontSize: 16, color: Colors.grey),
+                      ),
+                    ],
+                  ),
+                )
+                    : ListView.separated(
+                  separatorBuilder: (context, index) => const Divider(height: 1),
                   itemCount: _produtos.length,
                   itemBuilder: (ctx, i) {
                     final p = _produtos[i];
                     return ListTile(
-                      leading: p.isChecked
-                          ? const Icon(Icons.check_circle, color: Colors.green)
-                          : const Icon(Icons.circle_outlined, color: Colors.grey),
-                      title: Text(p.nome),
-                      subtitle: Text('${p.quantidade} un - ${p.estado}'),
-                      trailing: Text(p.valorEstimado),
+                      contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                      leading: p.isDanificado
+                          ? Container(
+                        width: 32, height: 32,
+                        decoration: const BoxDecoration(
+                            color: Colors.red,
+                            shape: BoxShape.circle
+                        ),
+                        child: const Icon(Icons.close, color: Colors.white, size: 20),
+                      )
+                          : (p.isChecked
+                          ? const Icon(Icons.check_circle, color: Colors.green, size: 32)
+                          : const Icon(Icons.circle_outlined, color: Colors.grey, size: 32)),
+
+                      title: Text(
+                          p.nome,
+                          style: TextStyle(
+                              fontWeight: FontWeight.bold,
+                              fontSize: 16,
+                              decoration: p.isDanificado ? TextDecoration.lineThrough : null,
+                              color: p.isDanificado ? Colors.grey : Colors.black87
+                          )
+                      ),
+
+                      subtitle: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const SizedBox(height: 4),
+                          Text(
+                              p.valorEstimado,
+                              style: TextStyle(
+                                  color: Colors.blue[800],
+                                  fontWeight: FontWeight.w500
+                              )
+                          ),
+                          Text('${p.quantidade} un', style: const TextStyle(fontSize: 12)),
+                        ],
+                      ),
+
+                      trailing: IconButton(
+                        icon: const Icon(Icons.delete_outline, color: Colors.red),
+                        onPressed: () => _deletarProduto(p),
+                      ),
+
                       onTap: () => _abrirTelaEdicao(p, false, []),
                     );
                   },

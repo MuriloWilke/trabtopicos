@@ -27,7 +27,6 @@ class _ProdutoEditScreenState extends State<ProdutoEditScreen> {
   late TextEditingController _nomeController;
   late TextEditingController _categoriaController;
   late TextEditingController _valorEstimadoController;
-  late TextEditingController _estadoController;
   late TextEditingController _quantidadeController;
 
   @override
@@ -36,16 +35,20 @@ class _ProdutoEditScreenState extends State<ProdutoEditScreen> {
     _nomeController = TextEditingController(text: widget.produto.nome);
     _categoriaController = TextEditingController(text: widget.produto.categoria);
     _valorEstimadoController = TextEditingController(text: widget.produto.valorEstimado);
-    _estadoController = TextEditingController(text: widget.produto.estado);
     _quantidadeController = TextEditingController(text: widget.produto.quantidade.toString());
   }
 
   Future<void> _salvar() async {
+    if (widget.produto.isDanificado) {
+      await _storage.saveProduto(widget.produto);
+      Modular.to.pop();
+      return;
+    }
+
     if (_formKey.currentState!.validate()) {
       widget.produto.nome = _nomeController.text;
       widget.produto.categoria = _categoriaController.text;
       widget.produto.valorEstimado = _valorEstimadoController.text;
-      widget.produto.estado = _estadoController.text;
       widget.produto.quantidade = int.tryParse(_quantidadeController.text) ?? 1;
 
       await _storage.saveProduto(widget.produto);
@@ -55,10 +58,9 @@ class _ProdutoEditScreenState extends State<ProdutoEditScreen> {
   }
 
   bool _isFieldEnabled(String fieldName) {
+    if (widget.produto.isDanificado) return false;
+
     if (!widget.isVistoriaReview) return true;
-
-    if (fieldName == 'valor') return true;
-
     return widget.camposAlteradosPelaIA.contains(fieldName);
   }
 
@@ -67,7 +69,7 @@ class _ProdutoEditScreenState extends State<ProdutoEditScreen> {
     return Scaffold(
       appBar: AppBar(
         title: Text(widget.isVistoriaReview ? 'Revisão da IA' : 'Editar Produto'),
-        backgroundColor: widget.isVistoriaReview ? Colors.orange : null,
+        backgroundColor: widget.produto.isDanificado ? Colors.red : (widget.isVistoriaReview ? Colors.orange : null),
       ),
       body: SingleChildScrollView(
         padding: const EdgeInsets.all(16),
@@ -82,11 +84,32 @@ class _ProdutoEditScreenState extends State<ProdutoEditScreen> {
                 ),
               const SizedBox(height: 16),
 
-              if (widget.isVistoriaReview)
+              // AVISO DE DANO
+              if (widget.produto.isDanificado)
+                Container(
+                  padding: const EdgeInsets.all(16),
+                  margin: const EdgeInsets.only(bottom: 16),
+                  decoration: BoxDecoration(
+                      color: Colors.red[100],
+                      border: Border.all(color: Colors.red),
+                      borderRadius: BorderRadius.circular(8)
+                  ),
+                  child: const Row(
+                    children: [
+                      Icon(Icons.warning, color: Colors.red, size: 32),
+                      SizedBox(width: 12),
+                      Expanded(child: Text(
+                        "ITEM DANIFICADO/COM DEFEITO.\nEdição bloqueada.",
+                        style: TextStyle(color: Colors.red, fontWeight: FontWeight.bold),
+                      ))
+                    ],
+                  ),
+                )
+              else if (widget.isVistoriaReview)
                 const Padding(
                   padding: EdgeInsets.only(bottom: 16),
                   child: Text(
-                    "A IA detectou alterações. Verifique os campos e ajuste o valor se necessário.",
+                    "A IA detectou alterações. Verifique os campos.",
                     style: TextStyle(color: Colors.orange, fontWeight: FontWeight.bold),
                     textAlign: TextAlign.center,
                   ),
@@ -96,7 +119,6 @@ class _ProdutoEditScreenState extends State<ProdutoEditScreen> {
               _buildField(_categoriaController, 'Categoria', 'categoria'),
               _buildField(_quantidadeController, 'Quantidade', 'quantidade', isNumber: true),
               _buildField(_valorEstimadoController, 'Valor', 'valor'),
-              _buildField(_estadoController, 'Estado', 'estado'),
 
               const SizedBox(height: 24),
               Row(
@@ -104,14 +126,18 @@ class _ProdutoEditScreenState extends State<ProdutoEditScreen> {
                   Expanded(
                       child: OutlinedButton(
                           onPressed: () => Modular.to.pop(),
-                          child: const Text('Cancelar')
+                          child: const Text('Voltar')
                       )
                   ),
                   const SizedBox(width: 16),
                   Expanded(
                       child: ElevatedButton(
                           onPressed: _salvar,
-                          child: const Text('Confirmar & Salvar')
+                          style: ElevatedButton.styleFrom(
+                              backgroundColor: widget.produto.isDanificado ? Colors.red : null,
+                              foregroundColor: widget.produto.isDanificado ? Colors.white : null
+                          ),
+                          child: Text(widget.produto.isDanificado ? 'Confirmar Avaria' : 'Salvar')
                       )
                   ),
                 ],
@@ -135,9 +161,6 @@ class _ProdutoEditScreenState extends State<ProdutoEditScreen> {
             labelText: label,
             filled: !isEnabled,
             fillColor: Colors.grey[200],
-            suffixIcon: isEnabled && widget.isVistoriaReview
-                ? const Icon(Icons.edit, color: Colors.orange)
-                : null,
             border: const OutlineInputBorder()
         ),
         validator: (v) => v == null || v.isEmpty ? 'Campo obrigatório' : null,

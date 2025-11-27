@@ -15,7 +15,7 @@ class StorageService {
 
   Future<Database> _initDatabase() async {
     final dbPath = await getDatabasesPath();
-    final path = join(dbPath, 'estoque_app.db');
+    final path = join(dbPath, 'estoque_app_v3.db');
 
     return await openDatabase(
       path,
@@ -36,9 +36,9 @@ class StorageService {
             nome TEXT,
             categoria TEXT,
             valorEstimado TEXT,
-            estado TEXT,
             quantidade INTEGER,
             isChecked INTEGER,
+            isDanificado INTEGER, 
             FOREIGN KEY (unidadeId) REFERENCES unidades (id) ON DELETE CASCADE
           )
         ''');
@@ -89,6 +89,15 @@ class StorageService {
       'produtos',
       produto.toMap(),
       conflictAlgorithm: ConflictAlgorithm.replace,
+    );
+  }
+
+  Future<void> deleteProduto(String produtoId) async {
+    final db = await database;
+    await db.delete(
+      'produtos',
+      where: 'id = ?',
+      whereArgs: [produtoId],
     );
   }
 

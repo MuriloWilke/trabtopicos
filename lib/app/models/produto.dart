@@ -7,9 +7,9 @@ class Produto {
   String nome;
   String categoria;
   String valorEstimado;
-  String estado;
   int quantidade;
   bool isChecked;
+  bool isDanificado;
 
   Produto({
     String? id,
@@ -18,9 +18,9 @@ class Produto {
     required this.nome,
     required this.categoria,
     required this.valorEstimado,
-    required this.estado,
     this.quantidade = 1,
     this.isChecked = false,
+    this.isDanificado = false,
   }) : id = id ?? const Uuid().v4();
 
   factory Produto.fromJson(Map<String, dynamic> json, String path) {
@@ -37,11 +37,11 @@ class Produto {
       nome: json['nome'] ?? 'Nome Desconhecido',
       categoria: json['categoria'] ?? 'Categoria Desconhecida',
       valorEstimado: json['valor_estimado'] ?? json['valorEstimado'] ?? '0',
-      estado: json['estado'] ?? 'Estado Desconhecido',
       quantidade: json['quantidade'] is int
           ? json['quantidade']
           : int.tryParse(json['quantidade'].toString()) ?? 1,
       isChecked: parseBool(json['isChecked']),
+      isDanificado: parseBool(json['isDanificado']),
     );
   }
 
@@ -53,9 +53,9 @@ class Produto {
       'nome': nome,
       'categoria': categoria,
       'valorEstimado': valorEstimado,
-      'estado': estado,
       'quantidade': quantidade,
       'isChecked': isChecked ? 1 : 0,
+      'isDanificado': isDanificado ? 1 : 0,
     };
   }
 
@@ -67,9 +67,9 @@ class Produto {
       'nome': nome,
       'categoria': categoria,
       'valorEstimado': valorEstimado,
-      'estado': estado,
       'quantidade': quantidade,
       'isChecked': isChecked,
+      'isDanificado': isDanificado,
     };
   }
 
@@ -79,8 +79,7 @@ class Produto {
       'nome': nome,
       'categoria': categoria,
       'quantidade': quantidade,
-      'estado': estado,
-      'checked': isChecked,
+      'isDanificado': isDanificado,
     };
   }
 }

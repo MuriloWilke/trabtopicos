@@ -64,7 +64,32 @@ class _UnidadeListScreenState extends State<UnidadeListScreen> {
       body: _isLoading
           ? const Center(child: CircularProgressIndicator())
           : _unidades.isEmpty
-          ? const Center(child: Text('Nenhuma unidade cadastrada.'))
+          ? Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Container(
+              width: 80,
+              height: 80,
+              decoration: const BoxDecoration(
+                color: Color(0xFFE0E0E0),
+                shape: BoxShape.circle,
+              ),
+              child: const Icon(
+                Icons.priority_high,
+                color: Colors.black,
+                size: 40,
+              ),
+            ),
+            const SizedBox(height: 16),
+            const Text(
+              'Nenhuma unidade cadastrada.\nCrie a primeira!',
+              textAlign: TextAlign.center,
+              style: TextStyle(fontSize: 16, color: Colors.grey),
+            ),
+          ],
+        ),
+      )
           : ListView.builder(
         itemCount: _unidades.length,
         itemBuilder: (ctx, i) {

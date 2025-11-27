@@ -36,5 +36,15 @@ dev_dependencies:
     sdk: flutter
   flutter_lints: ^3.0.0
 
+  # Ferramentas de configuração automática
+  flutter_launcher_icons: ^0.13.1
+
+flutter_launcher_icons:
+  android: "launcher_icon"
+  image_path: "assets/images/logo_inventario.png"
+
 flutter:
   uses-material-design: true
+
+  assets:
+    - assets/images/
